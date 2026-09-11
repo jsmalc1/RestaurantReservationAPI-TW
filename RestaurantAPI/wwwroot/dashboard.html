@@ -1,0 +1,402 @@
+﻿<!DOCTYPE html>
+<html lang="hr">
+<head>
+    <meta charset="UTF-8">
+    <title>Nadzorna ploča</title>
+    <style>
+        body {
+            font-family: Arial;
+            margin: 40px;
+            background: #f4f4f9;
+        }
+
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #007bff;
+            color: white;
+        }
+
+        button {
+            padding: 8px 12px;
+            border: none;
+            cursor: pointer;
+            border-radius: 4px;
+            color: white;
+            margin: 2px;
+        }
+
+        .btn-primary {
+            background-color: #007bff;
+        }
+
+        .btn-danger {
+            background-color: #dc3545;
+        }
+
+        .btn-success {
+            background-color: #28a745;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        input, select {
+            padding: 10px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 5px 0 15px 0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        .role-badge {
+            background: #ffc107;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 12px;
+        }
+
+        .flex-panel {
+            display: flex;
+            gap: 40px;
+            flex-wrap: wrap;
+        }
+
+        .form-section {
+            flex: 1;
+            min-width: 300px;
+            max-width: 400px;
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #eee;
+        }
+
+        .table-section {
+            flex: 2;
+            min-width: 400px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h2>Dobrodošli <span id="userRoleBadge" class="role-badge"></span></h2>
+            <button class="btn-danger" onclick="logout()">Odjavi se</button>
+        </div>
+        <p id="statusMsg" style="color: red; font-weight: bold;"></p>
+
+        <!-- ADMIN POGLED -->
+        <div id="adminPanel" style="display: none;">
+            <h3>Popis svih rezervacija u sustavu</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Korisnik ID</th>
+                        <th>Stol</th>
+                        <th>Termin</th>
+                        <th>Gosti</th>
+                        <th>Datum</th>
+                        <th>Dodatne usluge</th>
+                        <th>Status</th>
+                        <th>Akcije</th>
+                    </tr>
+                </thead>
+                <tbody id="adminTableBody"></tbody>
+            </table>
+        </div>
+
+        <!-- KORISNIK POGLED (Forma + Moje Rezervacije) -->
+        <div id="userPanel" class="flex-panel" style="display: none;">
+
+            <div class="form-section">
+                <h3 id="formTitle">Nova rezervacija</h3>
+                <input type="hidden" id="editResId">
+
+                <label>Broj gostiju:</label>
+                <input type="number" id="guestCount" min="1" max="4" value="2" onchange="filterTables()" oninput="filterTables()" required>
+
+                <label>Odaberite stol:</label>
+                <select id="tableId"></select>
+
+                <label>Odaberite termin:</label>
+                <select id="timeSlotId">
+                    <option value="1">18:00 - 20:00</option>
+                    <option value="2">20:00 - 22:00</option>
+                </select>
+
+                <label>Datum rezervacije:</label>
+                <input type="date" id="resDate" required>
+
+                <label>Dodatne usluge (opcionalno):</label>
+                <div style="margin-bottom: 15px;">
+                    <input type="checkbox" id="srv1" value="1" style="width:auto;"> Rođendanska torta (15€)<br>
+                    <input type="checkbox" id="srv2" value="2" style="width:auto;"> Šampanjac (25€)
+                </div>
+
+                <button id="submitBtn" class="btn-success" onclick="saveReservation()">Potvrdi rezervaciju</button>
+                <button id="cancelEditBtn" class="btn-danger" style="display:none; width:100%; margin-top:5px;" onclick="resetForm()">Odustani od izmjene</button>
+                <p id="userMsg" style="font-weight:bold; margin-top:10px;"></p>
+            </div>
+
+            <div class="table-section">
+                <h3>Moje rezervacije</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Stol</th>
+                            <th>Termin</th>
+                            <th>Gosti</th>
+                            <th>Datum</th>
+                            <th>Dodatne usluge</th>
+                            <th>Status</th>
+                            <th>Akcije</th>
+                        </tr>
+                    </thead>
+                    <tbody id="userTableBody"></tbody>
+                </table>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        const API_URL = "/api/reservation";
+        const token = localStorage.getItem("jwt_token");
+        let currentUserRole = "";
+
+        document.addEventListener("DOMContentLoaded", () => {
+            if (!token) { window.location.href = "index.html"; return; }
+
+            const roles = getRolesFromToken(token);
+            currentUserRole = roles.includes("Admin") ? "Admin" : "Korisnik";
+            document.getElementById("userRoleBadge").innerText = currentUserRole;
+
+            if (currentUserRole === "Admin") {
+                document.getElementById("adminPanel").style.display = "block";
+                loadAdminReservations();
+            } else {
+                document.getElementById("userPanel").style.display = "flex";
+                document.getElementById("resDate").valueAsDate = new Date();
+                filterTables(); // Inicijalno učitavanje stolova za 2 gosta
+                loadUserReservations();
+            }
+        });
+
+        // Rješavanje problema s ulogama (prilagodba za različite tipove tvrdnji u .NET-u)
+        function getRolesFromToken(jwt) {
+            try {
+                const payload = JSON.parse(atob(jwt.split('.')[1]));
+                const roleClaim = payload["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] || payload.role;
+                if (!roleClaim) return [];
+                return Array.isArray(roleClaim) ? roleClaim : [roleClaim];
+            } catch (e) { return []; }
+        }
+
+        // Dinamičko filtriranje stolova temeljem broja gostiju
+        function filterTables() {
+            const guests = parseInt(document.getElementById("guestCount").value) || 1;
+            const select = document.getElementById("tableId");
+            // Spremi stari odabir ako je moguće zadržati ga
+            const currentVal = select.value;
+            select.innerHTML = "";
+
+            if (guests <= 2) {
+                select.innerHTML += `<option value="1">Stol 1 (Terasa, do 2 osobe)</option>`;
+            }
+            if (guests <= 4) {
+                select.innerHTML += `<option value="2">Stol 2 (Unutrašnjost, do 4 osobe)</option>`;
+            }
+
+            // Zadrži stari odabir ako taj stol i dalje postoji u listi
+            if (Array.from(select.options).some(opt => opt.value === currentVal)) {
+                select.value = currentVal;
+            }
+        }
+
+        // --- KREIRANJE I AŽURIRANJE REZERVACIJE (KORISNIK) ---
+        async function saveReservation() {
+            const editId = document.getElementById("editResId").value;
+            const tableId = document.getElementById("tableId").value;
+            const timeSlotId = document.getElementById("timeSlotId").value;
+            const resDate = document.getElementById("resDate").value;
+            const guestCount = document.getElementById("guestCount").value;
+            const msg = document.getElementById("userMsg");
+            const services = [];
+            if (document.getElementById("srv1").checked) services.push(1);
+            if (document.getElementById("srv2").checked) services.push(2);
+
+            if (!resDate) { msg.style.color = "red"; msg.innerText = "Odaberite datum."; return; }
+
+            const payload = {
+                tableId: parseInt(tableId),
+                timeSlotId: parseInt(timeSlotId),
+                reservationDate: new Date(resDate).toISOString(),
+                guestCount: parseInt(guestCount),
+                specialServiceIds: services,
+            };
+
+            const method = editId ? "PUT" : "POST";
+            const url = editId ? `${API_URL}/${editId}` : API_URL;
+
+            try {
+                const res = await fetch(url, {
+                    method: method,
+                    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+                    body: JSON.stringify(payload)
+                });
+
+                if (res.ok) {
+                    msg.style.color = "green";
+                    msg.innerText = editId ? "Izmjena spremljena!" : "Rezervacija uspješno kreirana!";
+                    resetForm();
+                    loadUserReservations();
+                } else {
+                    const errorData = await res.json();
+                    msg.style.color = "red";
+                    msg.innerText = errorData.error || "Greška pri spremanju.";
+                }
+            } catch (e) { msg.innerText = "Greška u komunikaciji."; }
+        }
+
+        function editReservation(id, tableId, timeSlotId, guestCount, dateStr, serviceIds) {
+            document.getElementById("editResId").value = id;
+            document.getElementById("guestCount").value = guestCount;
+            filterTables();
+            document.getElementById("tableId").value = tableId;
+            document.getElementById("timeSlotId").value = timeSlotId;
+            document.getElementById("resDate").value = dateStr.split('T')[0];
+
+            document.getElementById("srv1").checked = serviceIds.includes(1);
+            document.getElementById("srv2").checked = serviceIds.includes(2);
+
+            document.getElementById("formTitle").innerText = "Uredi rezervaciju #" + id;
+            document.getElementById("submitBtn").innerText = "Spremi izmjene";
+            document.getElementById("cancelEditBtn").style.display = "block";
+        }
+
+        function resetForm() {
+            document.getElementById("editResId").value = "";
+            document.getElementById("guestCount").value = 2;
+            filterTables();
+
+            document.getElementById("srv1").checked = false;
+            document.getElementById("srv2").checked = false;
+
+            document.getElementById("formTitle").innerText = "Nova rezervacija";
+            document.getElementById("submitBtn").innerText = "Potvrdi rezervaciju";
+            document.getElementById("cancelEditBtn").style.display = "none";
+            document.getElementById("resDate").valueAsDate = new Date();
+        }
+
+        // --- DOHVAT REZERVACIJA (KORISNIK) ---
+        async function loadUserReservations() {
+            const tbody = document.getElementById("userTableBody");
+            tbody.innerHTML = "";
+            const res = await fetch(`${API_URL}/my`, { headers: { "Authorization": `Bearer ${token}` } });
+
+            if (res.ok) {
+                const data = await res.json();
+                data.forEach(r => {
+                    const rawDate = r.reservationDate;
+                    const displayDate = new Date(rawDate).toLocaleDateString('hr-HR');
+                    const hasServices = (r.reservationServices && r.reservationServices.length > 0) ? "Da" : "Ne";
+
+                    const serviceIds = r.reservationServices ? r.reservationServices.map(rs => rs.specialServiceId) : [];
+                    const serviceIdsStr = JSON.stringify(serviceIds);
+
+                    tbody.innerHTML += `<tr>
+                    <td>${r.tableId}</td>
+                    <td>${formatTimeSlot(r.timeSlotId)}</td>
+                    <td>${r.guestCount}</td>
+                    <td>${displayDate}</td>
+                    <td>${hasServices}</td>
+                    <td><b>${r.status}</b></td>
+                    <td>
+                        <button class="btn-primary" onclick="editReservation(${r.id}, ${r.tableId}, ${r.timeSlotId}, ${r.guestCount}, '${rawDate}', ${serviceIdsStr})">Uredi</button>
+                        <button class="btn-danger" onclick="deleteReservation(${r.id})">Otkaži</button>
+                    </td>
+                </tr>`;
+                });
+            }
+        }
+
+        // --- DOHVAT REZERVACIJA (ADMIN) ---
+        async function loadAdminReservations() {
+            const tbody = document.getElementById("adminTableBody");
+            tbody.innerHTML = "";
+            const res = await fetch(API_URL, { headers: { "Authorization": `Bearer ${token}` } });
+
+            if (res.ok) {
+                const data = await res.json();
+                data.forEach(r => {
+                    const date = new Date(r.reservationDate).toLocaleDateString('hr-HR');
+                    const hasServices = (r.reservationServices && r.reservationServices.length > 0) ? "Da" : "Ne";
+
+                    tbody.innerHTML += `<tr>
+                <td>${r.id}</td>
+                <td>${r.userId}</td>
+                <td>${r.tableId}</td>
+                <td>${formatTimeSlot(r.timeSlotId)}</td>
+                <td>${r.guestCount}</td>
+                <td>${date}</td>
+                <td>${hasServices}</td>
+                <td><b>${r.status}</b></td>
+                <td>
+                    <button class="btn-success" style="width:auto; margin:0;" onclick="updateStatus(${r.id}, 'Potvrđeno')">Potvrdi</button>
+                    <button class="btn-danger" onclick="deleteReservation(${r.id})">Obriši</button>
+                </td>
+            </tr>`;
+                });
+            }
+        }
+
+        // --- BRISANJE I STATUS (ZAJEDNIČKO) ---
+        async function deleteReservation(id) {
+            if (!confirm("Jeste li sigurni da želite obrisati ovu rezervaciju?")) return;
+            await fetch(`${API_URL}/${id}`, { method: "DELETE", headers: { "Authorization": `Bearer ${token}` } });
+            if (currentUserRole === "Admin") loadAdminReservations(); else loadUserReservations();
+        }
+
+        async function updateStatus(id, newStatus) {
+            await fetch(`${API_URL}/${id}/status`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+                body: JSON.stringify(newStatus)
+            });
+            loadAdminReservations();
+        }
+
+        function logout() {
+            localStorage.removeItem("jwt_token");
+            window.location.href = "index.html";
+        }
+
+        function formatTimeSlot(id) {
+            if (id === 1) return "1 (18:00 - 20:00)";
+            if (id === 2) return "2 (20:00 - 22:00)";
+            return id;
+        }
+    </script>
+</body>
+</html>

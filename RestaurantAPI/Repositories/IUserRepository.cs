@@ -1,0 +1,12 @@
+﻿using RestaurantAPI.Models;
+
+namespace RestaurantAPI.Repositories
+{
+    public interface IUserRepository
+    {
+        Task<User?> GetUserByEmailAsync(string email);
+        Task AddUserAsync(User user);
+        Task SaveChangesAsync();
+        Task<Role?> GetRoleByNameAsync(string roleName);
+    }
+}
