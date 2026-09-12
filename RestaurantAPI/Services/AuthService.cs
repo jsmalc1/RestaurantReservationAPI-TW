@@ -22,7 +22,7 @@ namespace RestaurantAPI.Services
         public async Task<string> RegisterAsync(RegisterDto dto)
         {
             var existingUser = await _userRepository.GetUserByEmailAsync(dto.Email);
-            if (existingUser != null) throw new Exception("Korisnik s ovim emailom već postoji.");
+            if (existingUser != null) throw new Exception("Korisnik s ovim emailom vec postoji.");
 
             var user = new User
             {

@@ -18,31 +18,15 @@ namespace RestaurantAPI.Controllers
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterDto dto)
         {
-            try
-            {
-                var result = await _authService.RegisterAsync(dto);
-                return Ok(new { message = result });
-            }
-            catch (Exception ex)
-            {
-                // Za sada vraćamo BadRequest s porukom. 
-                // Ovo ćemo refaktorirati u Fazi 4 koristeći Global Exception Handling Middleware.
-                return BadRequest(new { error = ex.Message });
-            }
+            var result = await _authService.RegisterAsync(dto);
+            return Ok(new { message = result });
         }
 
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginDto dto)
         {
-            try
-            {
-                var token = await _authService.LoginAsync(dto);
-                return Ok(new { token });
-            }
-            catch (Exception ex)
-            {
-                return Unauthorized(new { error = ex.Message });
-            }
+            var token = await _authService.LoginAsync(dto);
+            return Ok(new { token });
         }
     }
 }

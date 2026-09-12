@@ -18,7 +18,7 @@ namespace RestaurantAPI.Data
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            // M:N relacija user i role
+            // user i role m-n
             modelBuilder.Entity<UserRole>()
                 .HasKey(ur => new { ur.UserId, ur.RoleId });
 
@@ -32,7 +32,7 @@ namespace RestaurantAPI.Data
                 .WithMany(r => r.UserRoles)
                 .HasForeignKey(ur => ur.RoleId);
 
-            // M:N relacija reservation i specialservice
+            // res i ss m-n
             modelBuilder.Entity<ReservationService>()
                 .HasKey(rs => new { rs.ReservationId, rs.SpecialServiceId });
 
@@ -46,7 +46,7 @@ namespace RestaurantAPI.Data
                 .WithMany(ss => ss.ReservationServices)
                 .HasForeignKey(rs => rs.SpecialServiceId);
 
-            // zabrana kaskadnog brisanja za rezervacije kako bismo sacuvali povijest
+            // disable kaskadno brisanje
             modelBuilder.Entity<Reservation>()
                 .HasOne(r => r.User)
                 .WithMany(u => u.Reservations)

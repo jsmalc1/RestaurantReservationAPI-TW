@@ -124,6 +124,14 @@
                 </thead>
                 <tbody id="adminTableBody"></tbody>
             </table>
+
+            <h3 style="margin-top: 40px;">Upravljanje korisnicima</h3>
+            <table>
+                <thead>
+                    <tr><th>ID</th><th>Ime</th><th>Prezime</th><th>Email</th><th>Akcije</th></tr>
+                </thead>
+                <tbody id="usersTableBody"></tbody>
+            </table>
         </div>
 
         <!-- KORISNIK POGLED (Forma + Moje Rezervacije) -->
@@ -195,6 +203,7 @@
             if (currentUserRole === "Admin") {
                 document.getElementById("adminPanel").style.display = "block";
                 loadAdminReservations();
+                loadUsers();
             } else {
                 document.getElementById("userPanel").style.display = "flex";
                 document.getElementById("resDate").valueAsDate = new Date();
@@ -396,6 +405,44 @@
             if (id === 1) return "1 (18:00 - 20:00)";
             if (id === 2) return "2 (20:00 - 22:00)";
             return id;
+        }
+
+        async function loadUsers() {
+            const tbody = document.getElementById("usersTableBody");
+            tbody.innerHTML = "";
+            const res = await fetch("/api/user", { headers: { "Authorization": `Bearer ${token}` } });
+
+            if (res.ok) {
+                const data = await res.json();
+                data.forEach(u => {
+                    tbody.innerHTML += `<tr>
+                    <td>${u.id}</td>
+                    <td>${u.firstName}</td>
+                    <td>${u.lastName}</td>
+                    <td>${u.email}</td>
+                    <td>
+                        <button class="btn-danger" onclick="deleteSystemUser(${u.id})">Ukloni korisnika</button>
+                    </td>
+                </tr>`;
+                });
+            }
+        }
+
+        async function deleteSystemUser(id) {
+            if (!confirm("Jeste li sigurni? Brisanje korisnika obrisat će i sve njegove rezervacije!")) return;
+
+            const res = await fetch(`/api/user/${id}`, {
+                method: "DELETE",
+                headers: { "Authorization": `Bearer ${token}` }
+            });
+
+            if (res.ok) {
+                loadUsers();
+                loadAdminReservations(); // Osvježi i rezervacije jer su se možda obrisale
+            } else {
+                const err = await res.json();
+                alert(err.error || "Greška pri brisanju.");
+            }
         }
     </script>
 </body>

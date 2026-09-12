@@ -8,5 +8,8 @@ namespace RestaurantAPI.Repositories
         Task AddUserAsync(User user);
         Task SaveChangesAsync();
         Task<Role?> GetRoleByNameAsync(string roleName);
+        Task<IEnumerable<User>> GetAllUsersAsync();
+        Task<User?> GetByIdAsync(int id);
+        Task DeleteUserAsync(User user);
     }
 }

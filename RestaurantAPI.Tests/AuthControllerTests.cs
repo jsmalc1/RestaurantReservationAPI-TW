@@ -23,7 +23,7 @@ namespace RestaurantAPI.Tests
             var registerDto = new RegisterDto
             {
                 Email = "test@test.com",
-                Password = "Password123!",
+                Password = "Password123",
                 FirstName = "Ivan",
                 LastName = "Horvat"
             };
@@ -52,17 +52,16 @@ namespace RestaurantAPI.Tests
         }
 
         [Fact]
-        public async Task Login_ReturnsUnauthorized_WhenCredentialsAreInvalid()
+        public async Task Login_ThrowsException_WhenCredentialsAreInvalid()
         {
             var loginDto = new LoginDto { Email = "test@test.com", Password = "WrongPassword!" };
 
             _mockAuthService.Setup(s => s.LoginAsync(loginDto))
                             .ThrowsAsync(new Exception("Pogresan email ili lozinka."));
 
-            var result = await _controller.Login(loginDto);
+            var exception = await Assert.ThrowsAsync<Exception>(() => _controller.Login(loginDto));
 
-            var unauthorizedResult = Assert.IsType<UnauthorizedObjectResult>(result);
-            Assert.Equal(401, unauthorizedResult.StatusCode);
+            Assert.Equal("Pogresan email ili lozinka.", exception.Message);
         }
     }
 }

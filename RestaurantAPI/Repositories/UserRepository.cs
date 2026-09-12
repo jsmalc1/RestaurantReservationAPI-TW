@@ -35,5 +35,30 @@ namespace RestaurantAPI.Repositories
         {
             return await _context.Roles.FirstOrDefaultAsync(r => r.Name == roleName);
         }
+
+        public async Task<IEnumerable<User>> GetAllUsersAsync()
+        {
+            return await _context.Users.ToListAsync();
+        }
+
+        public async Task<User?> GetByIdAsync(int id)
+        {
+            return await _context.Users.FindAsync(id);
+        }
+
+        public async Task DeleteUserAsync(User user)
+        {
+            var userReservations = await _context.Reservations
+                .Where(r => r.UserId == user.Id)
+                .ToListAsync();
+
+            if (userReservations.Any())
+            {
+                _context.Reservations.RemoveRange(userReservations);
+            }
+
+            _context.Users.Remove(user);
+            await _context.SaveChangesAsync();
+        }
     }
 }
